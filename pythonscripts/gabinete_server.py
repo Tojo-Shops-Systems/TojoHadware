@@ -11,7 +11,7 @@ load_dotenv()
 app = Flask(__name__)
 
 # Cambiar por tu COM real
-arduino = serial.Serial("COM4", 9600, timeout=1)
+arduino = serial.Serial("/dev/ttyACM0", 9600, timeout=1)
 
 
 # ------------------------------------
