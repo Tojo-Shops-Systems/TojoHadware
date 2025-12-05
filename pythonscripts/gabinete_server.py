@@ -4,10 +4,13 @@ import time
 
 app = Flask(__name__)
 
-# Cambiar por tu COM real
-# Se usa /dev/ttyACM0 porque parece que el usuario está en Linux/Raspberry ahora o lo cambió manualmente
+# ------------------------------------
+# CONEXIÓN AL ARDUINO (CORREGIDO)
+# ------------------------------------
 try:
     arduino = serial.Serial("/dev/ttyACM0", 9600, timeout=1)
+    time.sleep(2)                # ← Espera a que Arduino reinicie
+    arduino.reset_input_buffer() # ← Limpia "ARDUINO READY"
 except serial.SerialException:
     print("ADVERTENCIA: No se pudo conectar al Arduino en /dev/ttyACM0. Se usará modo SIMULACIÓN.")
     arduino = None
@@ -18,15 +21,18 @@ except serial.SerialException:
 # ------------------------------------
 def enviar(cmd):
     if arduino is None:
-        # Modo simulación: devolver valores dummy
-        if cmd == "T": return "Temp01: 25.00"
-        if cmd == "H": return "Hum01: 60.00"
-        if cmd == "P": return "Pir01: 0"
-        if cmd == "G": return "Gas01: 100"
-        if cmd == "S": return "Serv01: 90"
-        if cmd == "K": return "Key01: 1234"
-        return "CMD_SIMULADO"
+        # --- Modo simulación ---
+        fake = {
+            "T": "Temp01: 25.00",
+            "H": "Hum01: 60.00",
+            "P": "Pir01: 0",
+            "G": "Gas01: 100",
+            "S": "Serv01: 90",
+            "K": "Key01: 1234"
+        }
+        return fake.get(cmd, "CMD_SIMULADO")
 
+    # Enviar comando real
     arduino.write(cmd.encode())
     time.sleep(0.2)
 
@@ -37,58 +43,65 @@ def enviar(cmd):
 
 
 # ------------------------------------
-# ENDPOINTS INDIVIDUALES (UN SENSOR)
+# ENDPOINTS INDIVIDUALES
 # ------------------------------------
 
 @app.route("/temperatura", methods=["GET"])
 def temperatura():
-    dato = enviar("T")  # Arduino ya manda: Temp01: xx.xx
+    dato = enviar("T")
     return Response(dato, mimetype="text/plain")
+
 
 @app.route("/humedad", methods=["GET"])
 def humedad():
-    dato = enviar("H")  # Arduino manda: Hum01: xx.xx
+    dato = enviar("H")
     return Response(dato, mimetype="text/plain")
+
 
 @app.route("/pir", methods=["GET"])
 def pir():
-    dato = enviar("P")  # Arduino manda: Pir01: 0/1
+    dato = enviar("P")
     return Response(dato, mimetype="text/plain")
+
 
 @app.route("/gas", methods=["GET"])
 def gas():
-    dato = enviar("G")  # Arduino manda: Gas01: valor
+    dato = enviar("G")
     return Response(dato, mimetype="text/plain")
+
 
 @app.route("/servo", methods=["GET"])
 def servo_status():
-    dato = enviar("S")  # Arduino manda: Serv01: <angulo>
+    dato = enviar("S")
     return Response(dato, mimetype="text/plain")
+
 
 @app.route("/keypad", methods=["GET"])
 def keypad():
-    dato = enviar("K")  # Arduino manda: Key01: <cadena>
+    dato = enviar("K")
     return Response(dato, mimetype="text/plain")
 
 
 # ------------------------------------
-# ENDPOINTS PARA CONTROLAR EL SERVO
+# CONTROL DE PUERTA (SERVO)
 # ------------------------------------
 
 @app.route("/abrir", methods=["GET"])
 def abrir_servo():
-    dato = enviar("O")  # Arduino abrirá la puerta
+    dato = enviar("O")
     return Response(dato, mimetype="text/plain")
+
 
 @app.route("/cerrar", methods=["GET"])
 def cerrar_servo():
-    dato = enviar("C")  # Arduino cerrará la puerta
+    dato = enviar("C")
     return Response(dato, mimetype="text/plain")
 
 
 # ------------------------------------
 # ENDPOINT GENERAL - TODOS LOS SENSORES
 # ------------------------------------
+
 @app.route("/sensores", methods=["GET"])
 def sensores_todos():
     temp = enviar("T")
